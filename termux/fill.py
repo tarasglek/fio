@@ -1,4 +1,4 @@
-#!env python
+#!python
 """
 Script fills filesystem to X percentage
 """
@@ -12,42 +12,63 @@ def to_mb(number):
 
 def cmd(cmdstr):
     "run command"
-    print cmdstr
+    print(cmdstr)
     os.system(cmdstr)
 
-def main(targetdir, fio):
+def calc_bytes_to_fill(directory, ratio):
+    "dir: directory, ratio: % of space to fill"
+    statvfs = os.statvfs(directory)
+    # blocks_already_filled:950675 desired_fill_blocks:342344 blocks_to_fill:1293019
+    # posix.statvfs_result(f_bsize=4096, f_frsize=4096, f_blocks=1306080, f_bfree=1174591, f_bavail=1163359, f_files=1397757, f_ffree=1392826, f_favail=1392826, f_flag=3078, f_namemax=255)
+    blocks_already_filled = statvfs.f_blocks - statvfs.f_bavail # 1306080 - 1163359 = 142721
+    desired_fill_blocks = math.floor(statvfs.f_blocks * ratio) # 
+    blocks_to_fill = desired_fill_blocks - blocks_already_filled
+    print ("blocks_already_filled:%d desired_fill_blocks:%d blocks_to_fill:%d"
+           % (blocks_already_filled, blocks_to_fill, desired_fill_blocks))
+    bytes_to_fill = blocks_to_fill * statvfs.f_bsize
+    return (bytes_to_fill, statvfs.f_blocks * statvfs.f_bsize)
+
+def main(fast_targetdir, media_targetdir, fio):
     """
     f_blocks - total number of blocks
     f_bavail - number of blocks available
     f_bsize - block size
     """
-    statvfs = os.statvfs(targetdir)
-    blocks_already_filled = statvfs.f_blocks - statvfs.f_bavail
-    blocks_desired = math.floor(statvfs.f_blocks * 0.95)
-    blocks_to_fill = blocks_desired - blocks_already_filled
-    bytes_to_fill = blocks_to_fill * statvfs.f_bsize
-    print "need to fill " + (to_mb(bytes_to_fill))
-    dest_file = targetdir + "/work_file.fio"
-    result_file = targetdir + "/big.json"
-    fio_str = ("./fio.arm --name=randwrite --rw=randwrite "
-               "--eta=always --sync=1 --output-format=json "
-               " --bs=%s --size=%d --filename=%s --output %s")
-    fio_cmd = (fio_str % ("4k", 50 * 1000 * 1000, dest_file, result_file + ".before"))
-    cmd(fio_cmd)
-    fio_str = ("./fio.arm --name=randwrite --rw=randwrite "
-               "--eta=always --sync=1 --output-format=json "
-               " --bs=%s --size=%d --filename=%s --output %s")
-    fio_cmd = (fio_str % ("1M", bytes_to_fill, dest_file, result_file + ".fill"))
-    cmd(fio_cmd)
-    fio_str = ("./fio.arm --name=randwrite --rw=randwrite "
-               "--eta=always --sync=1 --output-format=json "
-               " --bs=%s --size=%d --filename=%s --output %s")
-    fio_cmd = (fio_str % ("4k", 50 * 1000 * 1000, dest_file, result_file + ".after"))
-    cmd(fio_cmd)
+    (bytes_to_fill, total) = calc_bytes_to_fill(fast_targetdir, 1)
+    print ("need to fill %s/%s" %
+           (to_mb(bytes_to_fill), to_mb(total)))
 
+    short_benchmark_file_size = 100 * 1000 * 1000
+    bytes_to_fill = bytes_to_fill - short_benchmark_file_size - 50 * 1000 * 1000 # also a mb for stats
+    if (bytes_to_fill <= 0):
+        print "Ended up with -ve bytes_to_fill:%d" % bytes_to_fill
+        sys.exit(1)
+    fast_dest_file = fast_targetdir + "/work_file.fio"
+    media_dest_file = media_targetdir + "/work_file.fio"
+
+    result_file = fast_targetdir + "/big.json"
+    fio_str = ("%s --name=randwrite --rw=randwrite --timeout=60m"
+               "--eta=always --sync=1 --output-format=json --bandwidth-log"
+               " --bs=%s --size=%d --filename=%s --output %s")
+    cmd(fio_str % (fio, "4k", short_benchmark_file_size, fast_dest_file, result_file + ".before"))
+    for i in range(1, 1):
+        cmd(fio_str % (fio, "4k", bytes_to_fill, media_dest_file, result_file + ".fill."+str(i)))
+    cmd(fio_str % (fio, "4k", short_benchmark_file_size, fast_dest_file, result_file + ".after"))
+    try:
+        os.unlink(fast_dest_file)
+        os.unlink(media_dest_file)
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":
-    TARGET_DIR = sys.argv.pop(1)
-    FIO = sys.argv.pop(1)
-    main(TARGET_DIR, FIO)
+    print("Usage: %s <fast_target_dir> <media_target_dir> <FIO>" % sys.argv[0])
+    if len(sys.argv) == 4:
+        FAST_TARGET_DIR = sys.argv.pop(1)
+        MEDIA_TARGET_DIR = sys.argv.pop(1)
+        FIO = sys.argv.pop(1)
+    else:
+        FAST_TARGET_DIR = '.'
+        MEDIA_TARGET_DIR = '/storage/emulated/0'
+        FIO = "./fio.arm"
+    main(FAST_TARGET_DIR, MEDIA_TARGET_DIR, FIO)

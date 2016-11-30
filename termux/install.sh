@@ -2,5 +2,4 @@ apt update
 apt upgrade
 echo 'Setting up $HOME/storage'
 termux-setup-storage
-apt update
-apt install -y openssh
+apt install -y openssh python2
