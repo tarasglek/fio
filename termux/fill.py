@@ -39,21 +39,29 @@ def main(fast_targetdir, media_targetdir, fio):
            (to_mb(bytes_to_fill), to_mb(total)))
 
     short_benchmark_file_size = 100 * 1000 * 1000
-    bytes_to_fill = bytes_to_fill - short_benchmark_file_size - 50 * 1000 * 1000 # also a mb for stats
-    if (bytes_to_fill <= 0):
+    bytes_to_fill -= short_benchmark_file_size - 50 * 1000 * 1000 # also a mb for stats
+    if bytes_to_fill <= 0:
         print "Ended up with -ve bytes_to_fill:%d" % bytes_to_fill
         sys.exit(1)
     fast_dest_file = fast_targetdir + "/work_file.fio"
     media_dest_file = media_targetdir + "/work_file.fio"
 
-    result_file = fast_targetdir + "/big.json"
-    fio_str = ("%s --name=randwrite --rw=randwrite --timeout=60m"
-               "--eta=always --sync=1 --output-format=json --bandwidth-log"
-               " --bs=%s --size=%d --filename=%s --output %s")
-    cmd(fio_str % (fio, "4k", short_benchmark_file_size, fast_dest_file, result_file + ".before"))
+    result_file = fast_targetdir + "/benchmark_big.json"
+    log_prefix = fast_targetdir + "/benchmark"
+    fio_str = ("{fio} --name=randwrite --rw=randwrite --timeout=60m     "
+               "--eta=always --sync=1 --output-format=json "
+               "--write_bw_log={log_prefix} --write_lat_log={log_prefix} --write_iops_log={log_prefix} "
+               "--log_store_compressed=1 "
+               " --bs={bs} --size={size} --filename={filename} --output {output}")
+    cmd(fio_str.format(fio=fio,
+                       bs="4k",
+                       log_prefix=log_prefix,
+                       size=short_benchmark_file_size,
+                       filename=fast_dest_file,
+                       output=result_file + ".before"))
     for i in range(1, 1):
-        cmd(fio_str % (fio, "4k", bytes_to_fill, media_dest_file, result_file + ".fill."+str(i)))
-    cmd(fio_str % (fio, "4k", short_benchmark_file_size, fast_dest_file, result_file + ".after"))
+        cmd(fio_str.format(fio=fio, log_prefix=log_prefix, bs="4k", size=bytes_to_fill, filename=media_dest_file, output=result_file + ".fill."+str(i)))
+    cmd(fio_str.format(fio=fio, log_prefix=log_prefix, bs="4k", size=short_benchmark_file_size, filename=fast_dest_file, output=result_file + ".after"))
     try:
         os.unlink(fast_dest_file)
         os.unlink(media_dest_file)
