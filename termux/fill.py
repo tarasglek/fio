@@ -5,7 +5,7 @@ Script fills filesystem to X percentage
 import os
 import sys
 import math
-import argparse
+from shutil import copyfile
 
 def to_mb(number):
     "mb"
@@ -40,7 +40,7 @@ def main(fast_targetdir, media_targetdir, fio):
            (to_mb(bytes_to_fill), to_mb(total)))
 
     short_benchmark_file_size = 100 * 1000 * 1000
-    bytes_to_fill -= short_benchmark_file_size - 50 * 1000 * 1000 # also a mb for stats
+    bytes_to_fill -= short_benchmark_file_size + 50 * 1000 * 1000 # also a mb for stats
     if bytes_to_fill <= 0:
         print "Ended up with -ve bytes_to_fill:%d" % bytes_to_fill
         sys.exit(1)
@@ -49,6 +49,7 @@ def main(fast_targetdir, media_targetdir, fio):
 
     result_file = fast_targetdir + "/benchmark_big.json"
     log_prefix = fast_targetdir + "/benchmark"
+    copyfile("/proc/mounts", fast_targetdir + "/mounts")
     fio_str = ("{fio} --name=randwrite --rw=randwrite --timeout=60m     "
                "--eta=always --sync=1 --output-format=json "
                "--write_bw_log={log_prefix} --write_lat_log={log_prefix} --write_iops_log={log_prefix} "
