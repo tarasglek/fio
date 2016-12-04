@@ -40,7 +40,7 @@ def main(fast_targetdir, media_targetdir, fio):
            (to_mb(bytes_to_fill), to_mb(total)))
 
     short_benchmark_file_size = 100 * 1000 * 1000
-    bytes_to_fill -= short_benchmark_file_size + 50 * 1000 * 1000 # also a mb for stats
+    bytes_to_fill -= short_benchmark_file_size + 200 * 1000 * 1000 # also a mb for stats
     if bytes_to_fill <= 0:
         print "Ended up with -ve bytes_to_fill:%d" % bytes_to_fill
         sys.exit(1)
@@ -54,16 +54,15 @@ def main(fast_targetdir, media_targetdir, fio):
                "--eta=always --sync=1 --output-format=json "
                "--write_bw_log={log_prefix} --write_lat_log={log_prefix} --write_iops_log={log_prefix} "
                "--log_store_compressed=1 "
-               " --bs={bs} --size={size} --filename={filename} --output {output}")
+               " --bs={bs} --size={size} --filename={filename} --output {log_prefix}_output")
     cmd(fio_str.format(fio=fio,
                        bs="4k",
-                       log_prefix=log_prefix,
+                       log_prefix=log_prefix + "_before",
                        size=short_benchmark_file_size,
-                       filename=fast_dest_file,
-                       output=result_file + ".before"))
-    # for i in range(1, 1):
-    cmd(fio_str.format(fio=fio, log_prefix=log_prefix, bs="4k", size=bytes_to_fill, filename=media_dest_file, output=result_file + ".fill"))
-    cmd(fio_str.format(fio=fio, log_prefix=log_prefix, bs="4k", size=short_benchmark_file_size, filename=fast_dest_file, output=result_file + ".after"))
+                       filename=fast_dest_file))
+    # for i in range(1, 1): 
+    cmd(fio_str.format(fio=fio, log_prefix=log_prefix+"_fill", bs="4k", size=bytes_to_fill, filename=media_dest_file))
+    cmd(fio_str.format(fio=fio, log_prefix=log_prefix+"_after", bs="4k", size=short_benchmark_file_size, filename=fast_dest_file))
     return
     try:
         os.unlink(fast_dest_file)
