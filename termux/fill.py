@@ -5,6 +5,7 @@ Script fills filesystem to X percentage
 import os
 import sys
 import math
+import argparse
 
 def to_mb(number):
     "mb"
@@ -60,8 +61,9 @@ def main(fast_targetdir, media_targetdir, fio):
                        filename=fast_dest_file,
                        output=result_file + ".before"))
     # for i in range(1, 1):
-    cmd(fio_str.format(fio=fio, log_prefix=log_prefix, bs="4k", size=bytes_to_fill, filename=media_dest_file, output=result_file + ".fill")
+    cmd(fio_str.format(fio=fio, log_prefix=log_prefix, bs="4k", size=bytes_to_fill, filename=media_dest_file, output=result_file + ".fill"))
     cmd(fio_str.format(fio=fio, log_prefix=log_prefix, bs="4k", size=short_benchmark_file_size, filename=fast_dest_file, output=result_file + ".after"))
+    return
     try:
         os.unlink(fast_dest_file)
         os.unlink(media_dest_file)
