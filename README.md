@@ -6,3 +6,4 @@ f2fs paper https://www.usenix.org/conference/fast15/technical-sessions/presentat
 https://lwn.net/Articles/685499/ multi-stream interface
 https://www.usenix.org/system/files/conference/atc16/atc16_paper-min.pdf f2fs ext4 scaling
 https://www.usenix.org/legacy/event/fast12/tech/full_papers/Kim.pdf benchmarking phones
+/proc/diskstats is a way to count amount of IOs
