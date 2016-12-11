@@ -16,13 +16,13 @@ def cmd(cmdstr):
     print(cmdstr)
     os.system(cmdstr)
 
-def calc_bytes_to_fill(directory, ratio):
+def calc_bytes_to_fill(directory, ratio = 1):
     "dir: directory, ratio: % of space to fill"
     statvfs = os.statvfs(directory)
     # blocks_already_filled:950675 desired_fill_blocks:342344 blocks_to_fill:1293019
     # posix.statvfs_result(f_bsize=4096, f_frsize=4096, f_blocks=1306080, f_bfree=1174591, f_bavail=1163359, f_files=1397757, f_ffree=1392826, f_favail=1392826, f_flag=3078, f_namemax=255)
     blocks_already_filled = statvfs.f_blocks - statvfs.f_bavail # 1306080 - 1163359 = 142721
-    desired_fill_blocks = math.floor(statvfs.f_blocks * ratio) # 
+    desired_fill_blocks = math.floor(statvfs.f_blocks * ratio)
     blocks_to_fill = desired_fill_blocks - blocks_already_filled
     print ("blocks_already_filled:%d desired_fill_blocks:%d blocks_to_fill:%d"
            % (blocks_already_filled, blocks_to_fill, desired_fill_blocks))
@@ -35,7 +35,7 @@ def main(fast_targetdir, media_targetdir, fio):
     f_bavail - number of blocks available
     f_bsize - block size
     """
-    (bytes_to_fill, total) = calc_bytes_to_fill(fast_targetdir, 1)
+    (bytes_to_fill, total) = calc_bytes_to_fill(fast_targetdir)
     print ("need to fill %s/%s" %
            (to_mb(bytes_to_fill), to_mb(total)))
 
@@ -44,7 +44,8 @@ def main(fast_targetdir, media_targetdir, fio):
     if bytes_to_fill <= 0:
         # todo check for files from previous run so we don't have to reallocate
         print "Ended up with -ve bytes_to_fill:%d" % bytes_to_fill
-        sys.exit(1)
+        # sys.exit(1)
+        print "continueing"
     bytes_to_fill = int(bytes_to_fill)
     fast_dest_file = fast_targetdir + "/work_file.fio"
     media_dest_file = media_targetdir + "/work_file.fio"
@@ -63,12 +64,22 @@ def main(fast_targetdir, media_targetdir, fio):
                        size=short_benchmark_file_size,
                        filename=fast_dest_file, timeout=timeout))
     num_chunks = 10
+    chunk_size = bytes_to_fill / num_chunks
     for i in range(0, num_chunks):
-        suffix = "" if i == 0 else "_fill_" + str(i)
+        if calc_bytes_to_fill(fast_targetdir)[0] <= chunk_size:
+            print "Ran out of space during fill. Exiting fill phase"
+            break
+        if i == 0:
+            suffix = ""
+            filename = fast_dest_file
+        else:
+            suffix = "_fill_" + str(i)
+            filename = media_dest_file + suffix
         cmd(fio_str.format(fio=fio, log_prefix=log_prefix+"_fill" + suffix,
-                           bs="4k", size=bytes_to_fill / num_chunks,
-                           filename=fast_dest_file + suffix, timeout=timeout/num_chunks))
-    cmd(fio_str.format(fio=fio, log_prefix=log_prefix+"_after", bs="4k", size=short_benchmark_file_size, filename=fast_dest_file, timeout=timeout))
+                           bs="4k", size=chunk_size,
+                           filename=filename, timeout=timeout/num_chunks))
+    cmd(fio_str.format(fio=fio, log_prefix=log_prefix+"_after", bs="4k",
+                       size=short_benchmark_file_size, filename=fast_dest_file, timeout=timeout))
     return
     try:
         os.unlink(fast_dest_file)
